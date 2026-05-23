@@ -17,7 +17,7 @@
 The recommended installation method is using `pip`:
 
 ```bash
-pip install mloader
+pip install git+https://github.com/infernalsaber/mloader.git
 ```
 
 After installation, the `mloader` command will be available. Check the [command line](%EF%B8%8F-command-line-interface) section for supported commands.
