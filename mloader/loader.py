@@ -3,6 +3,7 @@ from collections import namedtuple
 from functools import lru_cache
 from itertools import chain, count
 from typing import Union, Dict, Set, Collection, Optional, Callable
+import uuid
 
 import click
 from requests import Session
@@ -38,7 +39,8 @@ class MangaLoader:
         self.session.headers.update(
             {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; "
-                "rv:72.0) Gecko/20100101 Firefox/72.0"
+                "rv:72.0) Gecko/20100101 Firefox/72.0",
+                "Session-Token": str(uuid.uuid1())
             }
         )
 
