@@ -87,7 +87,7 @@ Examples:
 @click.version_option(
     about.__version__,
     prog_name=about.__title__,
-    message="%(prog)s by Hurlenko, version %(version)s\n"
+    message="%(prog)s by infernalsaber, based on hurlenko, version %(version)s\n"
     f"Check {about.__url__} for more info",
 )
 @click.option(

@@ -30,7 +30,7 @@ setup(
         "Click>=6.2",
         "protobuf~=3.6",
         "requests>=2",
-        "curl-adapter==1.2.1",
+        "curl-adapter~=1.2.1",
     ],
     license=about["__license__"],
     zip_safe=False,

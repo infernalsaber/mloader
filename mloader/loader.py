@@ -9,7 +9,6 @@ from curl_adapter import CurlCffiAdapter
 import os
 
 import click
-from requests import Session
 
 from mloader.constants import PageType
 from mloader.exporter import ExporterBase
@@ -20,7 +19,11 @@ from mloader.response_pb2 import (
     Chapter,
     Title,
 )
-from mloader.utils import CustomSession, chapter_name_to_int
+from mloader.utils import (
+    CustomSession,
+    chapter_name_to_int,
+    random_browser_headers,
+)
 
 log = logging.getLogger()
 
@@ -51,6 +54,9 @@ class MangaLoader:
         session.mount("http://", CurlCffiAdapter())
         session.mount("https://", CurlCffiAdapter())
         self.session = session
+        # One browser identity per run: switching mid-session looks odder
+        # than staying on one
+        self.session.headers.update(random_browser_headers())
         self.session.headers.update(
             {
                 "Session-Token": str(uuid.uuid1())
@@ -59,6 +65,8 @@ class MangaLoader:
 
     def _decrypt_image(self, url: str, encryption_hex: str) -> bytearray:
         resp = self.session.get(url)
+        # Don't save an error page as an image once retries run out
+        resp.raise_for_status()
         data = bytearray(resp.content)
         key = bytes.fromhex(encryption_hex)
         a = len(key)
@@ -175,60 +183,70 @@ class MangaLoader:
                     p.manga_page for p in viewer.pages if p.manga_page.image_url
                 ]
 
-                with click.progressbar(
-                    length=len(pages), label=chapter_name, show_pos=True
-                ) as pbar:
-                    page_counter = count()
-                    futures = {}
-                    completed_images = {}
-                    next_to_write = 0
+                try:
+                    with click.progressbar(
+                        length=len(pages), label=chapter_name, show_pos=True
+                    ) as pbar:
+                        page_counter = count()
+                        futures = {}
+                        completed_images = {}
+                        next_to_write = 0
 
-                    with ThreadPoolExecutor(max_workers=WORKERS) as executor:
-                        for page_number, (page_index, page) in enumerate(
-                            zip(page_counter, pages)
-                        ):
-                            if PageType(page.type) == PageType.double:
-                                page_index = range(page_index, next(page_counter))
+                        with ThreadPoolExecutor(max_workers=WORKERS) as executor:
+                            for page_number, (page_index, page) in enumerate(
+                                zip(page_counter, pages)
+                            ):
+                                if PageType(page.type) == PageType.double:
+                                    page_index = range(page_index, next(page_counter))
 
-                            if exporter.skip_image(page_index):
-                                completed_images[page_number] = None
-                                pbar.update(1)
+                                if exporter.skip_image(page_index):
+                                    completed_images[page_number] = None
+                                    pbar.update(1)
 
-                                while next_to_write in completed_images:
-                                    completed_image = completed_images.pop(
-                                        next_to_write
-                                    )
-                                    if completed_image is not None:
-                                        image_index, image_blob = completed_image
-                                        exporter.add_image(image_blob, image_index)
-                                    next_to_write += 1
-                                continue
+                                    while next_to_write in completed_images:
+                                        completed_image = completed_images.pop(
+                                            next_to_write
+                                        )
+                                        if completed_image is not None:
+                                            image_index, image_blob = completed_image
+                                            exporter.add_image(image_blob, image_index)
+                                        next_to_write += 1
+                                    continue
 
-                            future = executor.submit(
-                                self._decrypt_image,
-                                page.image_url,
-                                page.encryption_key,
-                            )
-                            futures[future] = (page_number, page_index)
-
-                        for future in as_completed(futures):
-                            page_number, page_index = futures[future]
-                            completed_images[page_number] = (
-                                page_index,
-                                future.result(),
-                            )
-                            pbar.update(1)
-
-                            while next_to_write in completed_images:
-                                completed_image = completed_images.pop(
-                                    next_to_write
+                                future = executor.submit(
+                                    self._decrypt_image,
+                                    page.image_url,
+                                    page.encryption_key,
                                 )
-                                if completed_image is not None:
-                                    image_index, image_blob = completed_image
-                                    exporter.add_image(image_blob, image_index)
-                                next_to_write += 1
+                                futures[future] = (page_number, page_index)
 
-                exporter.close()
+                            try:
+                                for future in as_completed(futures):
+                                    page_number, page_index = futures[future]
+                                    completed_images[page_number] = (
+                                        page_index,
+                                        future.result(),
+                                    )
+                                    pbar.update(1)
+
+                                    while next_to_write in completed_images:
+                                        completed_image = completed_images.pop(
+                                            next_to_write
+                                        )
+                                        if completed_image is not None:
+                                            image_index, image_blob = completed_image
+                                            exporter.add_image(image_blob, image_index)
+                                        next_to_write += 1
+                            except BaseException:
+                                # Don't keep downloading the rest of a
+                                # chapter that already failed
+                                executor.shutdown(wait=False, cancel_futures=True)
+                                raise
+
+                    exporter.close()
+                except BaseException:
+                    exporter.abort()
+                    raise
 
     def download(
         self,

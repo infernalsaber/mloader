@@ -5,14 +5,14 @@
 
 ## **mloader** - download manga from mangaplus.shueisha.co.jp
 
-Working fork of https://github.com/hurlenko/mloader/ with some [modifications](#-improvements), with future-proofing and performance in mind
+A fork of [hurlenko/mloader](https://github.com/hurlenko/mloader) that keeps it working, along with improved speed and reliability. See [what's different](#-whats-new).
 
 ## 🚩 Table of Contents
 
 - [Installation](#-installation)
 - [Usage](#-usage)
 - [Command line interface](#%EF%B8%8F-command-line-interface)
-- [Future-Proofing](#future-proofing)
+- [What's new?](#-whats-new)
 
 ## 💾 Installation
 
@@ -29,7 +29,7 @@ If you prefer `pip`, you can still install it directly:
 pip install git+https://github.com/infernalsaber/mloader.git
 ```
 
-After installation, the `mloader` command will be available. Check the [command line](%EF%B8%8F-command-line-interface) section for supported commands.
+After installation, the `mloader` command will be available. Check the [command line](#%EF%B8%8F-command-line-interface) section for supported commands.
 
 ## 📙 Usage
 
@@ -72,9 +72,18 @@ Options:
   --help                          Show this message and exit.
 ```
 
-## 🔧 Improvements
+## ✨ What's new
 
-- Generates `Session-Token` for MangaPlus access
-- Mimics a browser's TLS fingerprint for future-proofing
-- Uses multiple workers for faster downloads
-- Overwritable configs incase of site changes
+- **It works** : Compatible with updated platform APIs
+- **Speed**: With multiple workers and rotating ua, faster downloads
+- **Resilience**: More resistant to site hiccups, [configurable](#-optional-settings)
+
+### 🔧 Optional settings
+
+Both are environment variables, for example `MAX_WORKERS=4 mloader <url>`.
+
+| Setting         | What it does                                  | Default        |
+| --------------- | --------------------------------------------- | -------------- |
+| `MAX_WORKERS`   | How many pages to download at once (1 to 8)   | `8`            |
+| `MANGAPLUS_URL` | Server address to use if MANGA Plus moves it  | current server |
+

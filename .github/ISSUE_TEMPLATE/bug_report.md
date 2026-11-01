@@ -3,7 +3,7 @@ name: Bug report
 about: Create a report to help improve mloader
 title: ''
 labels: bug
-assignees: hurlenko
+assignees: infernalsaber
 
 ---
 

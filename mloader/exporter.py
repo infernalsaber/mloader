@@ -108,6 +108,10 @@ class ExporterBase(metaclass=ABCMeta):
     def close(self):
         pass
 
+    def abort(self):
+        """Called instead of close() when the chapter download fails."""
+        pass
+
     @abstractmethod
     def add_image(self, image_data: bytes, index: Union[int, range]):
         pass
@@ -142,9 +146,12 @@ class CBZExporter(ExporterBase):
         self.path.mkdir(parents=True, exist_ok=True)
         self.path = self.path.joinpath(self.chapter_name).with_suffix(".cbz")
         self.skip_all_images = self.path.exists()
+        # Written under a temporary name and renamed once complete, so an
+        # interrupted download never leaves a .cbz that later runs would skip
+        self.part_path = self.path.with_name(self.path.name + ".part")
         if not self.skip_all_images:
             self.archive = zipfile.ZipFile(
-                self.path, mode="w", compression=compression
+                self.part_path, mode="w", compression=compression
             )
 
     def add_image(self, image_data: bytes, index: Union[int, range]):
@@ -160,3 +167,10 @@ class CBZExporter(ExporterBase):
         if self.skip_all_images:
             return
         self.archive.close()
+        self.part_path.replace(self.path)
+
+    def abort(self):
+        if self.skip_all_images:
+            return
+        self.archive.close()
+        self.part_path.unlink(missing_ok=True)
