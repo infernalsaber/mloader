@@ -67,12 +67,12 @@ class MangaLoader:
         resp = self.session.get(url)
         # Don't save an error page as an image once retries run out
         resp.raise_for_status()
-        data = bytearray(resp.content)
+        data = resp.content
         key = bytes.fromhex(encryption_hex)
-        a = len(key)
-        for s in range(len(data)):
-            data[s] ^= key[s % a]
-        return data
+        # XOR the whole buffer as one big int instead of a slow per-byte Python loop
+        repeated_key = (key * (len(data) // len(key) + 1))[: len(data)]
+        decrypted = int.from_bytes(data, "big") ^ int.from_bytes(repeated_key, "big")
+        return bytearray(decrypted.to_bytes(len(data), "big"))
 
     @lru_cache(None)
     def _load_pages(self, chapter_id: Union[str, int]) -> MangaViewer:
